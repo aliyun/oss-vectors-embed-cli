@@ -52,6 +52,19 @@ pip install -e .
 
 ### Quick Start
 
+#### **Configure credentials**
+
+1. Configure OSS credentials values from the environment variables: 
+```bash
+export OSS_ACCESS_KEY_ID="your access key id"
+export OSS_ACCESS_KEY_SECRET="your access key secrect"
+```
+
+2. Configure DASHSCOPE API key from the environment variables:
+```bash
+export  DASHSCOPE_API_KEY="YOUR_DASHSCOPE_API_KEY"
+```
+
 #### **Put Examples**
 
 #### ** Examples for the Text-Embedding Model **
