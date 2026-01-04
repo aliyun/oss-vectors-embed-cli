@@ -278,6 +278,20 @@ oss-vectors-embed \
   --image "oss://bucket/path/*"
 ```
 
+17. **Access video files in OSS using presign URL:**
+```bash
+oss-vectors-embed \
+  --account-id 12***345 \
+  --vectors-region cn-hangzhou \
+  put \
+  --region cn-hangzhou \
+  --vector-bucket-name my-bucket \
+  --index-name my-index \
+  --model-id qwen2.5-vl-embedding \
+  --video "oss://bucket/path/example.mp4" \
+  --presign-url
+```
+
 #### **Query Examples**
 
 1. **Direct text query:**
@@ -406,6 +420,19 @@ oss-vectors-embed \
   --return-distance
 ```
 
+10. **Query in debug mode.:**
+```bash
+oss-vectors-embed \
+  --account-id 12***345 \
+  --vectors-region cn-hangzhou \
+  --debug \
+  query \
+  --vector-bucket-name my-bucket \
+  --index-name my-index \
+  --model-id text-embedding-v4 \
+  --text-value "query text" \
+  --top-k 20
+```
 
 ### Command Parameters
 

@@ -67,10 +67,11 @@ def _validate_inputs(text_value, text, image, video, multi_images, model, key, f
 @click.option('--batch-size', type=click.IntRange(1, 500), default=500, help='Number of vectors per OSS Vector put_vectors call (1-500, default: 500)')
 @click.option('--output', type=click.Choice(['json', 'table']), default='json', help='Output format')
 @click.option('--region', help='OSS region name (effective in OSS path mode)')
+@click.option('--presign-url', is_flag=True, help='When using OSS paths, prioritize using pre-signed URLs.')
 @click.pass_context
 def embed_put(ctx, vector_bucket_name, index_name, model_id, text_value, text, image,
               video, dashscope_inference_params, key, key_prefix, filename_as_key,
-              metadata, max_workers, batch_size, output, region):
+              metadata, max_workers, batch_size, output, region, presign_url):
     """Unified embed and store vectors command."""
 
     console = ctx.obj['console']
@@ -157,7 +158,7 @@ def embed_put(ctx, vector_bucket_name, index_name, model_id, text_value, text, i
             "file_path" in processing_input.data and
             "batch_text_url" not in processing_input.data):
             file_path = processing_input.data["file_path"]
-            if '*' in file_path or '?' in file_path:
+            if '*' in file_path or ('?' in file_path and not file_path.startswith('http')):
                 return _process_streaming_batch(
                     file_path, processing_input.content_type, vector_bucket_name, index_name,
                     model, metadata_dict, user_dash_scope_params, batch_text_url,
@@ -169,7 +170,7 @@ def embed_put(ctx, vector_bucket_name, index_name, model_id, text_value, text, i
             progress.add_task("Processing input...", total=None)
             result = processor.process(
                 model, processing_input, user_dash_scope_params,
-                batch_text_url, vector_bucket_name, index_name, index_dimensions
+                batch_text_url, vector_bucket_name, index_name, index_dimensions, presign_url
             )
 
             # Store vectors with batch_size handling

@@ -33,7 +33,8 @@ class UnifiedProcessor:
                 user_dash_scope_params: Dict[str, Any] = None,
                 batch_text_url: str = None,  # Replaces async_output_oss_uri
                 vector_bucket_name: str = None, index_name: str = None,
-                precomputed_dimensions: int = None) -> ProcessingResult:
+                precomputed_dimensions: int = None,
+                presign_url=None) -> ProcessingResult:
         """Unified processing method for all input types and models."""
         
         # Step 1: Get index dimensions if available
@@ -44,7 +45,7 @@ class UnifiedProcessor:
         index_dimensions = precomputed_dimensions
         
         # Step 2: Build content for schema application
-        content = self._prepare_content(processing_input, index_dimensions, user_dash_scope_params)
+        content = self._prepare_content(processing_input, index_dimensions, user_dash_scope_params, presign_url)
         
         # Step 3: Build payload using schema-based system (includes validation and merge)
         user_dash_scope_params = user_dash_scope_params or {}
@@ -76,50 +77,20 @@ class UnifiedProcessor:
         
         return ProcessingResult(vectors=vectors, result_type=result_type, job_id=job_id, raw_results=raw_results)
     
-    def _prepare_content(self, processing_input: ProcessingInput, index_dimensions: int, user_dash_scope_params: Dict[str, Any] = None) -> Dict[str, Any]:
+    def _prepare_content(self, processing_input: ProcessingInput, index_dimensions: int, user_dash_scope_params: Dict[str, Any] = None, presign_url=None) -> Dict[str, Any]:
         """Prepare content dictionary for schema application."""
         content = {"index": {"dimensions": index_dimensions}}
 
-        
+
         if processing_input.content_type == "text":
-            if "file_path" in processing_input.data and "text" not in processing_input.data:
-                # Read file content for sync models
-                file_content = self._read_file_content(processing_input.data["file_path"])
-                content["text"] = file_content
-                # Update processing_input.data so metadata logic can access the text content
-                processing_input.data["text"] = file_content
-            else:
-                content["text"] = processing_input.data.get("text", "")
+            content.update(self._prepare_text_content(processing_input))
         elif processing_input.content_type == "batch_text":
             if "batch_text_url" in processing_input.data:
                 content["batch_text_url"] = processing_input.data["batch_text_url"]
                 content["text_type"] = (user_dash_scope_params or {}).get("text_type", "document")
-                
+
         elif processing_input.content_type == "image":
-            if "file_path" in processing_input.data:
-                file_path = processing_input.data["file_path"]
-                if file_path.startswith('http://') or file_path.startswith('https://'):
-                    content["image"] = processing_input.data.get("file_path", "")
-                else:
-                    # For async models , preserve file_path for media_source
-                    content["file_path"] = file_path
-
-                    # For sync models, read and encode image
-                    base64_image = self._read_image_as_base64(file_path)
-
-                    # Set both formats to support different models:
-                    if file_path.lower().endswith(('.jpg', '.jpeg')):
-                        mime_type = "image/jpeg"
-                    elif file_path.lower().endswith('.png'):
-                        mime_type = "image/png"
-                    else:
-                        mime_type = "image/jpeg"  # default
-
-                    content["image_base64"] = base64_image
-                    content["image"] = f"data:{mime_type};base64,{base64_image}"
-            else:
-                content["image_base64"] = processing_input.data.get("image_base64", "")
-                content["image"] = processing_input.data.get("image", "")
+            content.update(self._prepare_image_content(processing_input, presign_url))
                 
         elif processing_input.content_type == "multimodal":
             # Handle multimodal input (text + image)
@@ -145,31 +116,12 @@ class UnifiedProcessor:
                     content["image_base64"] = base64_image
                     content["image"] = f"data:{mime_type};base64,{base64_image}"
 
+
         elif processing_input.content_type == "video":
-            content["video"] = processing_input.data.get("file_path", "")
+            content.update(self._prepare_video_content(processing_input, presign_url))
+
         elif processing_input.content_type == "multi_images":
-            if "file_path" in processing_input.data:
-                file_path = processing_input.data["file_path"]
-                validated_paths = []
-                for path in file_path:
-                    if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
-                        validated_paths.append(path)
-                    elif isinstance(path, str):
-                        base64_image = self._read_image_as_base64(path)
-
-                        # Determine MIME type
-                        if path.lower().endswith(('.jpg', '.jpeg')):
-                            mime_type = "image/jpeg"
-                        elif path.lower().endswith('.png'):
-                            mime_type = "image/png"
-                        else:
-                            mime_type = "image/jpeg"  # default
-
-                        # Format as data URI
-                        validated_paths.append(f"data:{mime_type};base64,{base64_image}")
-                content["multi_images"] = validated_paths
-            else:
-                content["multi_images"] = processing_input.data.get("multi_images", "")
+            content.update(self._prepare_multi_images_content(processing_input, presign_url))
         return content
     
     def _read_file_content(self, file_path: str) -> str:
@@ -470,3 +422,101 @@ class UnifiedProcessor:
         
         self.oss_vector_service.put_vectors_batch(vector_bucket_name, index_name, vectors)
         return [v["key"] for v in vectors]
+
+    def _prepare_text_content(self, processing_input: ProcessingInput) -> Dict[str, Any]:
+        """Prepare content for text processing input."""
+        content = {}
+        if "file_path" in processing_input.data and "text" not in processing_input.data:
+            # Read file content for sync models
+            file_content = self._read_file_content(processing_input.data["file_path"])
+            content["text"] = file_content
+            # Update processing_input.data so metadata logic can access the text content
+            processing_input.data["text"] = file_content
+        else:
+            content["text"] = processing_input.data.get("text", "")
+        return content
+
+    def _prepare_image_content(self, processing_input: ProcessingInput, presign_url=None) -> Dict[str, Any]:
+        """Prepare content for image processing input."""
+        content = {}
+        if "file_path" in processing_input.data:
+            file_path = processing_input.data["file_path"]
+            if file_path.startswith('http://') or file_path.startswith('https://'):
+                content["image"] = processing_input.data.get("file_path", "")
+            elif presign_url and file_path.startswith('oss://'):
+                pre_result = self._generate_oss_presign_url(file_path)
+                content["image"] = f"{pre_result.url}"
+            else:
+                # For async models , preserve file_path for media_source
+                content["file_path"] = file_path
+
+                # For sync models, read and encode image
+                base64_image = self._read_image_as_base64(file_path)
+
+                # Set both formats to support different models:
+                if file_path.lower().endswith(('.jpg', '.jpeg')):
+                    mime_type = "image/jpeg"
+                elif file_path.lower().endswith('.png'):
+                    mime_type = "image/png"
+                else:
+                    mime_type = "image/jpeg"  # default
+
+                content["image_base64"] = base64_image
+                content["image"] = f"data:{mime_type};base64,{base64_image}"
+        else:
+            content["image_base64"] = processing_input.data.get("image_base64", "")
+            content["image"] = processing_input.data.get("image", "")
+        return content
+
+    def _prepare_video_content(self, processing_input: ProcessingInput, presign_url=None) -> Dict[str, Any]:
+        """Prepare content for video processing input."""
+        content = {}
+        file_path = processing_input.data.get("file_path", "")
+        if presign_url and file_path.startswith('oss://'):
+            pre_result = self._generate_oss_presign_url(file_path)
+            content["video"] = f"{pre_result.url}"
+        else:
+            content["video"] = processing_input.data.get("file_path", "")
+        return content
+
+    def _prepare_multi_images_content(self, processing_input: ProcessingInput, presign_url=None) -> Dict[str, Any]:
+        """Prepare content for multi_images processing input."""
+        content = {}
+        if "file_path" in processing_input.data:
+            file_path = processing_input.data["file_path"]
+            validated_paths = []
+            for path in file_path:
+                if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+                    validated_paths.append(path)
+                elif presign_url and path.startswith('oss://'):
+                    pre_result = self._generate_oss_presign_url(path)
+                    validated_paths.append(pre_result)
+                elif isinstance(path, str):
+                    base64_image = self._read_image_as_base64(path)
+
+                    # Determine MIME type
+                    if path.lower().endswith(('.jpg', '.jpeg')):
+                        mime_type = "image/jpeg"
+                    elif path.lower().endswith('.png'):
+                        mime_type = "image/png"
+                    else:
+                        mime_type = "image/jpeg"  # default
+
+                    # Format as data URI
+                    validated_paths.append(f"data:{mime_type};base64,{base64_image}")
+            content["multi_images"] = validated_paths
+        else:
+            content["multi_images"] = processing_input.data.get("multi_images", "")
+        return content
+
+    def _generate_oss_presign_url(self, oss_path: str) -> str:
+        """Generate presign URL for OSS path."""
+        parts = oss_path[6:].split('/', 1)
+        bucket = parts[0]
+        key = parts[1] if len(parts) > 1 else ''
+        pre_result = self.dash_scope_service.oss_client.presign(oss.GetObjectRequest(
+            bucket=bucket,
+            key=key,
+        ))
+        return pre_result
+
