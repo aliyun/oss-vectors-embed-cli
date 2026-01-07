@@ -83,16 +83,16 @@ def create_multimodal_metadata(input_type: str, source_location: str,
         Metadata dictionary for multimodal content
     """
     metadata = {
-        'OSS-VECTORS-EMBED-SRC-LOCATION': source_location
+        'OSSVECTORS-EMBED-SRC-LOCATION': source_location
     }
     # Add temporal information if available
     if embedding_data.get('startSec') is not None:
-        metadata['OSS-VECTORS-EMBED-START-SEC'] = embedding_data['startSec']
+        metadata['OSSVECTORS-EMBED-START-SEC'] = embedding_data['startSec']
     if embedding_data.get('endSec') is not None:
-        metadata['OSS-VECTORS-EMBED-END-SEC'] = embedding_data['endSec']
+        metadata['OSSVECTORS-EMBED-END-SEC'] = embedding_data['endSec']
     
     # Add embedding type if available
     if embedding_data.get('embeddingOption'):
-        metadata['OSS-VECTORS-EMBED-TYPE'] = embedding_data['embeddingOption']
+        metadata['OSSVECTORS-EMBED-TYPE'] = embedding_data['embeddingOption']
     
     return metadata
