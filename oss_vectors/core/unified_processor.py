@@ -31,7 +31,7 @@ class UnifiedProcessor:
     
     def process(self, model: SupportedModel, processing_input: ProcessingInput,
                 user_dash_scope_params: Dict[str, Any] = None,
-                batch_text_url: str = None,  # Replaces async_output_oss_uri
+                batch_text_url: str = None,
                 vector_bucket_name: str = None, index_name: str = None,
                 precomputed_dimensions: int = None,
                 presign_url=None) -> ProcessingResult:
@@ -257,10 +257,10 @@ class UnifiedProcessor:
                                     source_text = self._read_file_content(processing_input.source_location)
                                     source_lines = source_text.split('\n')
 
-                                vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT"] = source_lines[text_index].strip()
-                                vector_metadata["OSS-VECTORS-EMBED-SRC-INDEX"] = str(text_index)
-                                vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
-                                vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
+                                vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT"] = source_lines[text_index].strip()
+                                vector_metadata["OSSVECTORS-EMBED-SRC-INDEX"] = str(text_index)
+                                vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
+                                vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
 
                                 # Create vector in OSS Vectors API format
                                 vector = {
@@ -308,10 +308,10 @@ class UnifiedProcessor:
                                         # Add standard metadata fields for batch text processing
                                         content_type_formatted = processing_input.content_type.upper().replace('_', '-')
 
-                                        vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT"] = source_lines[text_index].strip()
-                                        vector_metadata["OSS-VECTORS-EMBED-SRC-INDEX"] = str(text_index)
-                                        vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
-                                        vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
+                                        vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT"] = source_lines[text_index].strip()
+                                        vector_metadata["OSSVECTORS-EMBED-SRC-INDEX"] = str(text_index)
+                                        vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
+                                        vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
 
                                         
                                         # Create vector in OSS Vectors API format
@@ -367,33 +367,33 @@ class UnifiedProcessor:
                 if "file_path" in processing_input.data:
                     # File input (--text, --image, --video, --multi_images) - always add location
                     content_type_formatted = processing_input.content_type.upper().replace('_', '-')
-                    vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
-                    vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
+                    vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
+                    vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
                     
                     # For text files, also add the raw text content
                     if processing_input.content_type == "text" and "text" in processing_input.data:
-                        vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT"] = processing_input.data["text"]
-                    # For image/video/multi_images files, OSS-VECTORS-EMBED-SRC-CONTENT is not added (blank)
+                        vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT"] = processing_input.data["text"]
+                    # For image/video/multi_images files, OSSVECTORS-EMBED-SRC-CONTENT is not added (blank)
                 elif processing_input.content_type == "multimodal":
                     # Multimodal input - add both content and location
                     multimodal_data = processing_input.data.get("multimodal", {})
                     content_type_formatted = processing_input.content_type.upper()
-                    vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
+                    vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
                     if multimodal_data.get("text", ""):
-                        vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT"] = multimodal_data.get("text", "")
+                        vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT"] = multimodal_data.get("text", "")
                     if multimodal_data.get("image", ""):
-                        vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = multimodal_data.get("image", "")
+                        vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = multimodal_data.get("image", "")
                     if multimodal_data.get("video", ""):
-                        vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = multimodal_data.get("video", "")
+                        vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = multimodal_data.get("video", "")
                     if multimodal_data.get("multi_images", ""):
-                        vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = multimodal_data.get("multi_images", "")
+                        vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = multimodal_data.get("multi_images", "")
                 else:
                     # Direct text input (--text-value) - only add content, no location
                     if processing_input.content_type == "text" and "text" in processing_input.data:
-                        vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT"] = processing_input.data["text"]
+                        vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT"] = processing_input.data["text"]
                     content_type_formatted = processing_input.content_type.upper()
-                    vector_metadata["OSS-VECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
-                    vector_metadata["OSS-VECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
+                    vector_metadata["OSSVECTORS-EMBED-SRC-CONTENT-TYPE"] = content_type_formatted
+                    vector_metadata["OSSVECTORS-EMBED-SRC-LOCATION"] = processing_input.source_location
                 
                 # Add model-specific metadata for async models
                 if model.is_async():
