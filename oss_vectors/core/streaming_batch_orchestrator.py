@@ -34,7 +34,7 @@ class StreamingBatchOrchestrator:
                                 vector_bucket_name: str, index_name: str, model: SupportedModel,
                                 metadata: Dict[str, Any], batch_text_url: str = None,
                                 user_dash_scope_params: Dict[str, Any] = None,
-                                index_dimensions: int = None, filename_as_key: bool = False, key_prefix: str = None) -> BatchResult:
+                                index_dimensions: int = None, filename_as_key: bool = False, key_prefix: str = None, presign_url=None) -> BatchResult:
         """Process files using streaming approach - no memory loading of all file paths."""
         
         # Detect processing strategy
@@ -57,7 +57,7 @@ class StreamingBatchOrchestrator:
         # Process using appropriate streaming method
         if strategy == "oss_streaming":
             return self._process_oss_streaming(file_pattern, content_type, vector_bucket_name,
-                                               index_name, metadata, batch_context)
+                                               index_name, metadata, batch_context, presign_url)
         else:  # local_streaming
             return self._process_local_streaming(file_pattern, content_type, vector_bucket_name, 
                                                index_name, metadata, batch_context)
@@ -73,7 +73,7 @@ class StreamingBatchOrchestrator:
     
     def _process_oss_streaming(self, oss_pattern: str, content_type: str,
                                vector_bucket_name: str, index_name: str,
-                               metadata: Dict[str, Any], batch_context: Dict[str, Any]) -> BatchResult:
+                               metadata: Dict[str, Any], batch_context: Dict[str, Any], presign_url=None) -> BatchResult:
         """Stream OSS objects directly without pre-loading all paths."""
         
         # Parse OSS pattern
@@ -105,7 +105,7 @@ class StreamingBatchOrchestrator:
             
             # Process chunk
             processed, failed, keys, errors = self._process_chunk(
-                chunk_files, content_type, vector_bucket_name, index_name, metadata, batch_context
+                chunk_files, content_type, vector_bucket_name, index_name, metadata, batch_context, presign_url
             )
             
             total_processed += processed
@@ -227,7 +227,7 @@ class StreamingBatchOrchestrator:
     
     def _process_chunk(self, chunk_files: List[str], content_type: str,
                       vector_bucket_name: str, index_name: str, 
-                      metadata: Dict[str, Any], batch_context: Dict[str, Any]) -> Tuple[int, int, List[str], List[str]]:
+                      metadata: Dict[str, Any], batch_context: Dict[str, Any], presign_url=None) -> Tuple[int, int, List[str], List[str]]:
         """Process a chunk of files using UnifiedProcessor."""
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
@@ -236,18 +236,21 @@ class StreamingBatchOrchestrator:
         processed_keys = []
         errors = []
         
+
+        return self._process_chunk_async(chunk_files, content_type, vector_bucket_name, index_name, metadata, batch_context, presign_url)
+
         # For video/multi_images, process sequentially due to async nature
         # For text/image, use parallel processing
-        if content_type in ["video", "multi_images"]:
-            return self._process_chunk_async(chunk_files, content_type, vector_bucket_name, 
-                                           index_name, metadata, batch_context)
-        else:
-            return self._process_chunk_sync(chunk_files, content_type, vector_bucket_name,
-                                          index_name, metadata, batch_context)
+        # if content_type in ["video", "multi_images"]:
+        #     return self._process_chunk_async(chunk_files, content_type, vector_bucket_name,
+        #                                    index_name, metadata, batch_context, presign_url)
+        # else:
+        #     return self._process_chunk_sync(chunk_files, content_type, vector_bucket_name,
+        #                                   index_name, metadata, batch_context, presign_url)
     
     def _process_chunk_sync(self, chunk_files: List[str], content_type: str,
                            vector_bucket_name: str, index_name: str, 
-                           metadata: Dict[str, Any], batch_context: Dict[str, Any]) -> Tuple[int, int, List[str], List[str]]:
+                           metadata: Dict[str, Any], batch_context: Dict[str, Any], presign_url=None) -> Tuple[int, int, List[str], List[str]]:
         """Process text/image files in parallel (existing logic)."""
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
@@ -277,7 +280,8 @@ class StreamingBatchOrchestrator:
                     batch_context['batch_text_url'],
                     vector_bucket_name,
                     index_name,
-                    batch_context['index_dimensions']  # Pass precomputed dimensions
+                    batch_context['index_dimensions'],
+                    presign_url
                 )
                 future_to_file[future] = file_path
             
@@ -321,7 +325,7 @@ class StreamingBatchOrchestrator:
     
     def _process_chunk_async(self, chunk_files: List[str], content_type: str,
                             vector_bucket_name: str, index_name: str, 
-                            metadata: Dict[str, Any], batch_context: Dict[str, Any]) -> Tuple[int, int, List[str], List[str]]:
+                            metadata: Dict[str, Any], batch_context: Dict[str, Any], presign_url=None) -> Tuple[int, int, List[str], List[str]]:
         """Process video/multi_images files with parallel async processing."""
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
@@ -352,7 +356,8 @@ class StreamingBatchOrchestrator:
                     batch_context['batch_text_url'],
                     vector_bucket_name,
                     index_name,
-                    batch_context['index_dimensions']
+                    batch_context['index_dimensions'],
+                    presign_url
                 )
                 future_to_file[future] = file_path
             
