@@ -162,7 +162,7 @@ def embed_put(ctx, vector_bucket_name, index_name, model_id, text_value, text, i
                 return _process_streaming_batch(
                     file_path, processing_input.content_type, vector_bucket_name, index_name,
                     model, metadata_dict, user_dash_scope_params, batch_text_url,
-                    processor, console, output, max_workers, batch_size, index_dimensions, processing_input.filename_as_key, processing_input.key_prefix
+                    processor, console, output, max_workers, batch_size, index_dimensions, processing_input.filename_as_key, processing_input.key_prefix, presign_url
                 )
 
         with _create_progress_context(console) as progress:
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
 def _process_streaming_batch(file_path, content_type, vector_bucket_name, index_name,
                              model, metadata_dict, user_dash_scope_params, batch_text_url,
-                             processor, console, output, max_workers, batch_size, index_dimensions, filename_as_key, key_prefix):
+                             processor, console, output, max_workers, batch_size, index_dimensions, filename_as_key, key_prefix, presign_url=None):
     """Process wildcard pattern using efficient streaming batch orchestrator."""
 
     try:
@@ -236,7 +236,7 @@ def _process_streaming_batch(file_path, content_type, vector_bucket_name, index_
         # Process using streaming approach (no pre-loading of file paths)
         batch_result = streaming_orchestrator.process_streaming_batch(
             file_path, content_type, vector_bucket_name, index_name, model,
-            metadata_dict, batch_text_url, user_dash_scope_params, index_dimensions, filename_as_key, key_prefix
+            metadata_dict, batch_text_url, user_dash_scope_params, index_dimensions, filename_as_key, key_prefix, presign_url
         )
 
         # Display results
